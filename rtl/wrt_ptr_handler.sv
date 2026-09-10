@@ -16,7 +16,7 @@ module wrt_ptr_handler (
     assign g_wptr_next = (b_wptr_next>>1)^b_wptr_next;
     assign wfull = (g_wptr_next=={~g_rptr_sync[A_WIDTH:A_WIDTH-1],g_rptr_sync[A_WIDTH-2:0]});
 
-    always_ff @( posedge wclk or negedge wrst_n ) begin : registers
+    always_ff @( posedge wclk or negedge wrst_n ) begin : write
         if (!wrst_n) begin
             b_wptr <= '0;
             g_wptr <= '0;
