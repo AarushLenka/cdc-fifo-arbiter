@@ -11,8 +11,8 @@ module dual_ff_sync (
 
     always_ff @(posedge clk or negedge rst_n) begin : sync
         if (!rst_n) begin
-            q0 <= 1'b0;
-            q  <= 1'b0;
+            q0 <= '0;
+            q  <= '0;
         end else begin
             q0 <= d0;
             q  <= q0;

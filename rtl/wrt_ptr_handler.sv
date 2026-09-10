@@ -5,9 +5,10 @@ module wrt_ptr_handler (
     input logic wrst_n,
     input logic w_en,
     input logic [A_WIDTH:0] g_rptr_sync,
-    output logic [A_WIDTH:0] g_wptr, 
-    output logic [A_WIDTH:0] b_wptr,
-    output logic full
+    output logic full,
+    output logic [A_WIDTH:0] b_wptr, 
+    output logic [A_WIDTH:0] g_wptr
+    
 );
     logic [A_WIDTH:0] b_wptr_next, g_wptr_next;
     logic wfull;

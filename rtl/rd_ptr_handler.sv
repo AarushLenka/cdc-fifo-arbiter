@@ -17,16 +17,15 @@ module rd_ptr_handler (
     assign rempty = (g_rptr_next==g_wptr_sync);
 
     always_ff @( posedge rclk or negedge rrst_n ) begin : read
-    if (!rrst_n) begin
-        b_rptr <= '0;
-        g_rptr <= '0;
-        empty <= 1'b1;
-    end
-    else begin
-        b_rptr <= b_rptr_next;
-        g_rptr <= g_rptr_next;
-        empty <= rempty;
-    end
-        
+        if (!rrst_n) begin
+            b_rptr <= '0;
+            g_rptr <= '0;
+            empty <= 1'b1;
+        end
+        else begin
+            b_rptr <= b_rptr_next;
+            g_rptr <= g_rptr_next;
+            empty <= rempty;
+        end      
     end
 endmodule
