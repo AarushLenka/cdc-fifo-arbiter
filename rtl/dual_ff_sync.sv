@@ -1,13 +1,15 @@
+import fifo_pkg::A_WIDTH;
+
 module dual_ff_sync (
     input  logic clk,
     input  logic rst_n,
-    input  logic d0,
-    output logic q
+    input  logic [A_WIDTH:0] d0,
+    output logic [A_WIDTH:0] q
 );
 
-    logic q0;
+    logic [A_WIDTH:0] q0;
 
-    always_ff @(posedge clk) begin : sync
+    always_ff @(posedge clk or negedge rst_n) begin : sync
         if (!rst_n) begin
             q0 <= 1'b0;
             q  <= 1'b0;
