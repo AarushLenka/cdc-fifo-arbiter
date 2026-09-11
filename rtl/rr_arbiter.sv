@@ -7,7 +7,6 @@ module rr_arbiter #(
     //input logic priority,
     input logic [N-1:0] i_req,
     output logic [N-1:0] o_grant
-    output logic grant_valid
 );
     logic [N-1:0] masked_req, masked_grant, priority_sel_grant, mask_reg; 
 
@@ -15,11 +14,14 @@ module rr_arbiter #(
         if (!arst_n) mask_reg <= '1;
         else begin
             if (o_grant[0]) mask_reg <= 4'b1110;
-            if (o_grant[0]) mask_reg <= 4'b1100;
-            if (o_grant[0]) mask_reg <= 4'b1000;
-            if (o_grant[0]) mask_reg <= 4'b1111;
+            if (o_grant[1]) mask_reg <= 4'b1100;
+            if (o_grant[2]) mask_reg <= 4'b1000;
+            if (o_grant[3]) mask_reg <= 4'b1111;
         end
     end
+
+    arbiter_fx_priority #(.N(N)) masked_grant (.i_req(masked_req), .o_grant(masked_grant))
+    arbiter_fx_priority #(.N(N)) masked_grant (.i_req(i_req), .o_grant(priority_sel_grant))
 
     assign masked_req = i_req & mask_reg;
 
