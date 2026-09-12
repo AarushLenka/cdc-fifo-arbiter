@@ -11,10 +11,10 @@ module rr_arbiter #(
     integer i;
     always_comb begin : next_mask_logic
         next_mask = '1;
-        for (i = 0; i<N-1 ; i=i+1 ) begin
-            if (o_grant[i]) next_mask = '1 << (i+1);
+        for (i = 0; i<N; i=i+1 ) begin
+            if (o_grant[i]) 
+                 next_mask = (i == N-1)?'1:({N{1'b1}} << (i+1));
         end
-        if (o_grant[N-1]) next_mask = '1;
     end
 
     always_ff @( posedge clk or negedge arst_n ) begin : Mask_generation_logic
