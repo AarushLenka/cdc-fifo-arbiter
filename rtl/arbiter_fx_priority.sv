@@ -1,15 +1,16 @@
 module arbiter_fx_priority #(
-    parameter N
+    parameter int N = 4
 ) (
     input logic [N-1:0]i_req,
     output logic [N-1:0] o_grant
 );
 
-    integer i;
     always_comb begin : grant
-        o_grant[0] = i_req[0];
-        for (i = 1 ; i<N; i=i+1 ) begin
-            o_grant[i] = i_req[i] & ~(|o_grant[i-1:0]);
+        logic higher_granted;
+        higher_granted = 1'b0;
+        for (int i = 0; i < N; i++) begin
+            o_grant[i]     = i_req[i] & ~higher_granted;
+            higher_granted = higher_granted | o_grant[i];
         end
     end
         
