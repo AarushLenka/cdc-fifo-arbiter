@@ -1,58 +1,23 @@
-// =============================================================================
-// Arbiter Formal Properties
-// Bound to rr_arbiter via the bind statement at the bottom.
-// All properties are clocked on posedge clk and disabled during async reset.
-// =============================================================================
-
 module arbiter_properties #(parameter N = 4) (
     input logic           clk,
     input logic           arst_n,
     input logic [N-1:0]   i_req,
-    input logic [N-1:0]   o_grant
+    input logic [N-1:0]   o_grant,
+    input logic [N-1:0]   mask_rg
 );
 
-// ---------------------------------------------------------------------------
-// SAFETY PROPERTY 1: Mutual Exclusion
-// o_grant must always be one-hot or all-zero — never two bits set at once.
-// $onehot0 returns true if at most one bit is set (includes all-zero).
-// This is the simplest property and should converge in seconds.
-// ---------------------------------------------------------------------------
 property p_onehot;
     @(posedge clk) disable iff (!arst_n)
     $onehot0(o_grant);
 endproperty
 a_onehot: assert property (p_onehot);
 
-
-// ---------------------------------------------------------------------------
-// SAFETY PROPERTY 2: No Spurious Grant
-// A requester can only be granted if it actually has a pending request.
-// Bitwise: no bit in o_grant may be set if the corresponding i_req bit is low.
-// (o_grant & ~i_req) == 0 means every granted bit has a matching request.
-// ---------------------------------------------------------------------------
 property p_no_spurious;
     @(posedge clk) disable iff (!arst_n)
     (o_grant & ~i_req) == '0;
 endproperty
 a_no_spurious: assert property (p_no_spurious);
 
-
-// ---------------------------------------------------------------------------
-// LIVENESS PROPERTY 3: Starvation Freedom (Bounded Latency)
-// For every requester i: if i_req[i] is asserted AND stays asserted,
-// then o_grant[i] must fire within N cycles.
-//
-// Key SVA ideas used here:
-//   |->          implication: if antecedent holds, consequent must too
-//   ##[0:N-1]    "within the next N cycles"
-//   throughout   "the condition on the left holds at every cycle of the range"
-//
-// The "i_req[i] throughout" clause is critical — without it, formal can produce
-// a spurious counterexample where req deasserts before the grant window closes.
-// Constraining req to stay asserted is the standard approach (vs. using an
-// `assume` on the environment — see comment below). Both are valid; document
-// which you chose and why in your README.
-// ---------------------------------------------------------------------------
 genvar i;
 generate
     for (i = 0; i < N; i++) begin : gen_starvation
@@ -64,71 +29,27 @@ generate
     end
 endgenerate
 
-// Alternative approach using an environment assumption instead of "throughout":
-//   assume property (@(posedge clk) i_req[i] |-> (i_req[i] ##1 i_req[i]));
-// This tells the solver "req never deasserts until granted" as an input constraint
-// rather than baking it into the property antecedent. Both are equivalent for proof
-// purposes; the assume approach is sometimes cleaner when sharing properties with
-// a larger verification plan.
-
-
-// ---------------------------------------------------------------------------
-// LIVENESS PROPERTY 4: Deadlock Freedom
-// If ANY request is pending, SOME grant must fire — no cycle where requests
-// exist forever with zero grants.
-//
-// |i_req means "at least one request is asserted" (bitwise OR reduction).
-// |o_grant means "at least one grant is asserted".
-// So: if requests are up, a grant must appear within N cycles.
-// This is weaker than per-requester starvation freedom above but is a useful
-// sanity check and converges easily.
-// ---------------------------------------------------------------------------
 property p_no_deadlock;
     @(posedge clk) disable iff (!arst_n)
     |i_req |-> ##[0:N-1] |o_grant;
 endproperty
 a_no_deadlock: assert property (p_no_deadlock);
 
-
-// ---------------------------------------------------------------------------
-// LIVENESS PROPERTY 5: Fair Rotation
-// After granting requester i, if other requests were also pending at that
-// moment, requester i must NOT be the very next one granted.
-//
-// Key SVA ideas used here:
-//   $past(sig)       value of sig one cycle ago
-//   (grant != 0)[->1] "the next time a grant fires" (non-consecutive goto repeat)
-//   throughout        the negation must hold across the entire wait for next grant
-//
-// This property is genuinely fiddly — expect to iterate.
-// The tricky edge case: if i is the ONLY requester still asserted after being
-// granted, it is correct for it to be re-granted. This property only fires when
-// other requests were pending at the time of grant[i], enforced by the
-// ($past check on i_req) in the antecedent.
-//
-// If formal returns a counterexample here, read the waveform carefully before
-// editing — the property shape is often the issue, not the RTL.
-// ---------------------------------------------------------------------------
 generate
-    for (i = 0; i < N; i++) begin : gen_fairness
-        property p_fair_rotation;
-            // Other requests were pending when i was granted
-            logic [N-1:0] others;
-            assign others = i_req & ~(N'(1) << i);  // all req bits except i
+    for (genvar i = 0; i < N; i++) begin : gen_mask_rotation
 
+        localparam logic [N-1:0] EXPECTED_MASK =
+            (i == N-1) ? '1 : ('1 << (i+1));
+
+        assert property (
             @(posedge clk) disable iff (!arst_n)
-            (o_grant[i] && (|others)) |->
-                ##1 (!o_grant[i] throughout (o_grant != '0)[->1]);
-        endproperty
-        a_fair_rotation: assert property (p_fair_rotation);
+            o_grant[i] |=> mask_rg == EXPECTED_MASK
+        );
+
     end
 endgenerate
 
 
 endmodule
 
-// =============================================================================
-// Bind statement — attaches this checker to every instance of rr_arbiter.
-// The .* wildcard connects ports by name automatically.
-// =============================================================================
 bind rr_arbiter arbiter_properties #(.N(N)) inst (.*);
