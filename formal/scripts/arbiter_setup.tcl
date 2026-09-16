@@ -17,7 +17,7 @@ analyze -sv \
 #    N=4 is the default; change here to try other configurations.
 #    The bind in arbiter_properties.sva attaches the checker automatically.
 # -----------------------------------------------------------------------------
-elaborate -top rr_arbiter -param N=4
+elaborate -top rr_arbiter
 
 # -----------------------------------------------------------------------------
 # 3. Clock specification.
