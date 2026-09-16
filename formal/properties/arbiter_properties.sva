@@ -3,7 +3,7 @@ module arbiter_properties #(parameter N = 4) (
     input logic           arst_n,
     input logic [N-1:0]   i_req,
     input logic [N-1:0]   o_grant,
-    input logic [N-1:0]   mask_rg
+    input logic [N-1:0]   mask_reg
 );
 
 property p_onehot;
@@ -43,7 +43,7 @@ generate
 
         assert property (
             @(posedge clk) disable iff (!arst_n)
-            o_grant[i] |=> mask_rg == EXPECTED_MASK
+            o_grant[i] |=> mask_reg == EXPECTED_MASK
         );
 
     end
