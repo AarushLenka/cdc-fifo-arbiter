@@ -40,7 +40,7 @@ reset -expression {!arst_n}
 #      inconclusive — solver hit resource limits; consider bounded proof
 # -----------------------------------------------------------------------------
 prove -all
-
+report -results -summary
 # -----------------------------------------------------------------------------
 # 6. (Optional) If any property is inconclusive, try a bounded proof.
 #    Uncomment and set a depth appropriate for your machine.

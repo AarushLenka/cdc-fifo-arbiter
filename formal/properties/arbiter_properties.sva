@@ -21,11 +21,18 @@ a_no_spurious: assert property (p_no_spurious);
 genvar i;
 generate
     for (i = 0; i < N; i++) begin : gen_starvation
+
+        assume property (
+            @(posedge clk) disable iff (!arst_n)
+            (i_req[i] && !o_grant[i]) |=> i_req[i]
+        );
+
         property p_bounded_wait;
             @(posedge clk) disable iff (!arst_n)
-            i_req[i] |-> (i_req[i] throughout ##[0:N-1] o_grant[i]);
+            i_req[i] |-> ##[0:N] o_grant[i];
         endproperty
         a_bounded_wait: assert property (p_bounded_wait);
+
     end
 endgenerate
 
