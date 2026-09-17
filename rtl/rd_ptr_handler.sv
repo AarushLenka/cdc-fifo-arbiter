@@ -12,7 +12,7 @@ module rd_ptr_handler (
     logic [A_WIDTH:0] g_rptr_next, b_rptr_next;
     logic rempty;
 
-    assign b_rptr_next = b_rptr + (~rempty && r_en);
+    assign b_rptr_next = b_rptr + (~empty && r_en);
     assign g_rptr_next = (b_rptr_next>>1)^b_rptr_next;
     assign rempty = (g_rptr_next==g_wptr_sync);
 

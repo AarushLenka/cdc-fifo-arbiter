@@ -13,7 +13,7 @@ module wrt_ptr_handler (
     logic [A_WIDTH:0] b_wptr_next, g_wptr_next;
     logic wfull;
 
-    assign b_wptr_next = b_wptr + (~wfull && w_en);
+    assign b_wptr_next = b_wptr + (~full && w_en);
     assign g_wptr_next = (b_wptr_next>>1)^b_wptr_next;
     assign wfull = (g_wptr_next=={~g_rptr_sync[A_WIDTH:A_WIDTH-1],g_rptr_sync[A_WIDTH-2:0]});
 
