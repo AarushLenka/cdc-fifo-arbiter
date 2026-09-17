@@ -1,0 +1,87 @@
+import fifo_pkg::*;
+
+module fifo_properties (
+    input logic wclk,
+    input logic wrst_n,
+    input logic rclk,
+    input logic rrst_n,
+    input logic w_en,
+    input logic r_en,
+    input logic full,
+    input logic empty,
+    input logic [A_WIDTH:0] b_rptr,
+    input logic [A_WIDTH:0] b_wptr,
+    input logic [A_WIDTH:0] g_rptr,
+    input logic [A_WIDTH:0] g_wptr,
+    input logic [A_WIDTH:0] g_rptr_sync,
+    input logic [A_WIDTH:0] g_wptr_sync
+);
+
+// Write-domain reset properties (async, fires on negedge wrst_n)
+property write_reset_b_wptr;
+    @(negedge wrst_n) (b_wptr == '0);
+endproperty
+
+property write_reset_g_wptr;
+    @(negedge wrst_n) (g_wptr == '0);
+endproperty
+
+property write_reset_full;
+    @(negedge wrst_n) (!full);
+endproperty
+
+// Read-domain reset properties (async, fires on negedge rrst_n)
+property read_reset_b_rptr;
+    @(negedge rrst_n) (b_rptr == '0);
+endproperty
+
+property read_reset_g_rptr;
+    @(negedge rrst_n) (g_rptr == '0);
+endproperty
+
+property read_reset_empty;
+    @(negedge rrst_n) (empty);
+endproperty
+
+assert property (write_reset_b_wptr) else $error("Write reset failed: b_wptr != 0");
+assert property (write_reset_g_wptr) else $error("Write reset failed: g_wptr != 0");
+assert property (write_reset_full)   else $error("Write reset failed: full not deasserted");
+
+assert property (read_reset_b_rptr)  else $error("Read reset failed: b_rptr != 0");
+assert property (read_reset_g_rptr)  else $error("Read reset failed: g_rptr != 0");
+assert property (read_reset_empty)   else $error("Read reset failed: empty not asserted");
+
+// Write Pointer Increment Properties
+// b_wptr increments by 1 when write is enabled and FIFO is not full
+property write_ptr_increment;
+    @(posedge wclk) disable iff (!wrst_n)
+    (~full && w_en) |=> (b_wptr == $past(b_wptr) + 1'b1);
+endproperty
+
+// b_wptr stays unchanged when FIFO is full or write is not enabled
+property write_ptr_unchanged;
+    @(posedge wclk) disable iff (!wrst_n)
+    (full || ~w_en) |=> $stable(b_wptr);
+endproperty
+
+assert property (write_ptr_increment) else $error("Write pointer failed: b_wptr did not increment on valid write");
+assert property (write_ptr_unchanged) else $error("Write pointer failed: b_wptr changed unexpectedly");
+
+
+//Read Pointer Increment properties
+property read_pointer_increment;
+    @(posedge rclk) disable iff (!rrst_n)
+    (~empty && r_en) |=> (b_rptr == $past(b_rptr)+ 1'b1);
+endproperty
+
+property read_pointer_unchanged;
+    @(posedge rclk) disable iff (!rrst_n)
+    (empty || ~r_en) |=> ($stable(b_rptr));
+endproperty
+
+assert property (read_pointer_increment) else $error("Read pointer failed: b_rptr did not increment on valid read");
+assert property (read_pointer_unchanged) else $error("Read pointer failed: b_rptr changed unexpectedly");
+
+endmodule
+
+bind async_fifo fifo_properties inst (.*);
