@@ -19,28 +19,28 @@ module fifo_properties (
 
 // Write-domain reset properties (async, fires on negedge wrst_n)
 property write_reset_b_wptr;
-    @(negedge wrst_n) (b_wptr == '0);
+     @(posedge wclk) !wrst_n |-> (b_wptr == '0);
 endproperty
 
 property write_reset_g_wptr;
-    @(negedge wrst_n) (g_wptr == '0);
+    @(posedge wclk) !wrst_n |-> (g_wptr == '0);
 endproperty
 
 property write_reset_full;
-    @(negedge wrst_n) (!full);
+     @(posedge wclk) !wrst_n |-> (!full);
 endproperty
 
 // Read-domain reset properties (async, fires on negedge rrst_n)
 property read_reset_b_rptr;
-    @(negedge rrst_n) (b_rptr == '0);
+     @(posedge rclk) !rrst_n |-> (b_rptr == '0);
 endproperty
 
 property read_reset_g_rptr;
-    @(negedge rrst_n) (g_rptr == '0);
+    @(posedge rclk) !rrst_n |-> (g_rptr == '0);
 endproperty
 
 property read_reset_empty;
-    @(negedge rrst_n) (empty);
+    @(posedge rclk) !rrst_n |-> (empty);
 endproperty
 
 assert property (write_reset_b_wptr) else $error("Write reset failed: b_wptr != 0");
@@ -81,6 +81,30 @@ endproperty
 
 assert property (read_pointer_increment) else $error("Read pointer failed: b_rptr did not increment on valid read");
 assert property (read_pointer_unchanged) else $error("Read pointer failed: b_rptr changed unexpectedly");
+
+//Gray Pointer Properties
+property write_gray_pointer_inc;
+    @(posedge wclk) disable iff(!wrst_n)
+    (~full && w_en) |=> onehot(g_wptr^$past(g_wptr))
+endproperty
+
+property read_gray_pointer_inc;
+    @(posedge rclk) disable iff(!rrst_n)
+    (~empty && r_en) |=> onehot(g_rptr^$past(g_rptr))
+endproperty
+
+property write_gray_pointer_inc;
+    @(posedge wclk) disable iff(!wrst_n)
+    (full || ~w_en) |=> $stable(g_wptr)
+endproperty
+
+property read_gray_pointer_inc;
+    @(posedge rclk) disable iff(!rrst_n)
+    (empty || ~r_en) |=> $stable(g_rptr)
+endproperty
+
+assert property (write_gray_pointer_inc) else $error("Buggy write gray pointer");
+assert property (read_gray_pointer_inc) else $error("Buggy read gray pointer");
 
 endmodule
 
