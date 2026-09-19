@@ -17,7 +17,10 @@ module fifo_properties (
     input logic [A_WIDTH:0] g_wptr_sync
 );
 
-// Write-domain reset properties
+// ============================================================
+// Reset Properties
+// ============================================================
+
 property write_reset_b_wptr;
      @(posedge wclk) !wrst_n |-> (b_wptr == '0);
 endproperty
@@ -30,7 +33,6 @@ property write_reset_full;
      @(posedge wclk) !wrst_n |-> (!full);
 endproperty
 
-// Read-domain reset properties 
 property read_reset_b_rptr;
      @(posedge rclk) !rrst_n |-> (b_rptr == '0);
 endproperty
@@ -46,19 +48,21 @@ endproperty
 assert property (write_reset_b_wptr) else $error("Write reset failed: b_wptr != 0");
 assert property (write_reset_g_wptr) else $error("Write reset failed: g_wptr != 0");
 assert property (write_reset_full)   else $error("Write reset failed: full not deasserted");
-
 assert property (read_reset_b_rptr)  else $error("Read reset failed: b_rptr != 0");
 assert property (read_reset_g_rptr)  else $error("Read reset failed: g_rptr != 0");
 assert property (read_reset_empty)   else $error("Read reset failed: empty not asserted");
 
-// Write Pointer Increment Properties
-// b_wptr increments by 1 when write is enabled and FIFO is not full
+
+// ============================================================
+// Write Pointer Properties
+// ============================================================
+
 property write_ptr_increment;
     @(posedge wclk) disable iff (!wrst_n)
     (~full && w_en) |=> (b_wptr == $past(b_wptr) + 1'b1);
 endproperty
 
-// b_wptr stays unchanged when FIFO is full or write is not enabled
+//overflow
 property write_ptr_unchanged;
     @(posedge wclk) disable iff (!wrst_n)
     (full || ~w_en) |=> $stable(b_wptr);
@@ -68,12 +72,16 @@ assert property (write_ptr_increment) else $error("Write pointer failed: b_wptr 
 assert property (write_ptr_unchanged) else $error("Write pointer failed: b_wptr changed unexpectedly");
 
 
-//Read Pointer Increment properties
+// ============================================================
+// Read Pointer Properties
+// ============================================================
+
 property read_pointer_increment;
     @(posedge rclk) disable iff (!rrst_n)
-    (~empty && r_en) |=> (b_rptr == $past(b_rptr)+ 1'b1);
+    (~empty && r_en) |=> (b_rptr == $past(b_rptr) + 1'b1);
 endproperty
 
+//underflow
 property read_pointer_unchanged;
     @(posedge rclk) disable iff (!rrst_n)
     (empty || ~r_en) |=> ($stable(b_rptr));
@@ -82,15 +90,20 @@ endproperty
 assert property (read_pointer_increment) else $error("Read pointer failed: b_rptr did not increment on valid read");
 assert property (read_pointer_unchanged) else $error("Read pointer failed: b_rptr changed unexpectedly");
 
-//Gray Pointer Properties
+
+// ============================================================
+// Gray Pointer Properties
+// ============================================================
+
+// One-hot XOR: only one bit changes per valid transition
 property write_gray_pointer_inc;
     @(posedge wclk) disable iff(!wrst_n)
-    (~full && w_en) |=> $onehot(g_wptr^$past(g_wptr));
+    (~full && w_en) |=> $onehot(g_wptr ^ $past(g_wptr));
 endproperty
 
 property read_gray_pointer_inc;
     @(posedge rclk) disable iff(!rrst_n)
-    (~empty && r_en) |=> $onehot(g_rptr^$past(g_rptr));
+    (~empty && r_en) |=> $onehot(g_rptr ^ $past(g_rptr));
 endproperty
 
 property write_gray_pointer_unchanged;
@@ -103,25 +116,29 @@ property read_gray_pointer_unchanged;
     (empty || ~r_en) |=> $stable(g_rptr);
 endproperty
 
-// property write_gray_matches_binary;
-//     @(posedge wclk) disable iff (!wrst_n)
-//     g_wptr == ((b_wptr >> 1) ^ b_wptr);
-// endproperty
+// Structural correctness: gray encoding matches binary at all times
+property write_gray_matches_binary;
+    @(posedge wclk) disable iff (!wrst_n)
+    g_wptr == ((b_wptr >> 1) ^ b_wptr);
+endproperty
 
-// property read_gray_matches_binary;
-//     @(posedge rclk) disable iff (!rrst_n)
-//     g_rptr == ((b_rptr >> 1) ^ b_rptr);
-// endproperty
+property read_gray_matches_binary;
+    @(posedge rclk) disable iff (!rrst_n)
+    g_rptr == ((b_rptr >> 1) ^ b_rptr);
+endproperty
 
-// assert property (write_gray_matches_binary) else $error("Write Gray pointer does not match binary pointer");
-// assert property (read_gray_matches_binary) else $error("Read Gray pointer does not match binary pointer");
-assert property (write_gray_pointer_inc) else $error("Buggy write gray pointer");
-assert property (read_gray_pointer_inc) else $error("Buggy read gray pointer");
+assert property (write_gray_pointer_inc)      else $error("Buggy write gray pointer");
+assert property (read_gray_pointer_inc)       else $error("Buggy read gray pointer");
 assert property (write_gray_pointer_unchanged) else $error("Write gray pointer changed unexpectedly");
-assert property (read_gray_pointer_unchanged) else $error("Read gray pointer changed unexpectedly");
+assert property (read_gray_pointer_unchanged)  else $error("Read gray pointer changed unexpectedly");
+assert property (write_gray_matches_binary)   else $error("Write gray pointer does not match binary encoding");
+assert property (read_gray_matches_binary)    else $error("Read gray pointer does not match binary encoding");
 
 
-//Full and empty correctness
+// ============================================================
+// Full / Empty Flag Correctness (biconditional)
+// ============================================================
+
 property full_check;
     @(posedge wclk) disable iff (!wrst_n)
     (g_wptr == {~g_rptr_sync[A_WIDTH:A_WIDTH-1],
@@ -135,7 +152,7 @@ endproperty
 
 property full_implies_condition;
     @(posedge wclk) disable iff (!wrst_n)
-    full |-> 
+    full |->
         (g_wptr == {~g_rptr_sync[A_WIDTH:A_WIDTH-1],
                     g_rptr_sync[A_WIDTH-2:0]});
 endproperty
@@ -145,10 +162,28 @@ property empty_implies_condition;
     empty |-> (g_rptr == g_wptr_sync);
 endproperty
 
-assert property (full_check) else $error("FIFO FULL flag incorrect");
-assert property (empty_check) else $error("FIFO EMPTY flag incorrect");
+assert property (full_check)            else $error("FIFO FULL flag incorrect: condition met but full not set");
+assert property (empty_check)           else $error("FIFO EMPTY flag incorrect: condition met but empty not set");
 assert property (full_implies_condition) else $error("FULL asserted incorrectly");
 assert property (empty_implies_condition) else $error("EMPTY asserted incorrectly");
+
+
+// ============================================================
+// Cover Points
+// ============================================================
+
+// FIFO reaches full
+cover property (@(posedge wclk) disable iff (!wrst_n) full);
+
+// Write pointer wraps around (MSB toggles)
+cover property (@(posedge wclk) disable iff (!wrst_n)
+    (~full && w_en) ##1
+    (b_wptr[A_WIDTH] != $past(b_wptr[A_WIDTH])));
+
+// Read pointer wraps around (MSB toggles)
+cover property (@(posedge rclk) disable iff (!rrst_n)
+    (~empty && r_en) ##1
+    (b_rptr[A_WIDTH] != $past(b_rptr[A_WIDTH])));
 
 
 endmodule
